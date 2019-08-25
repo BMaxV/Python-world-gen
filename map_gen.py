@@ -8,14 +8,50 @@ Created on Fri Dec  8 22:47:38 2017
 import numpy as np
 import random
 import math
+import json
+
 
 from scipy.spatial import Voronoi
 
-from src_towngen import *
-from src_events import *
+from town_gen import *
+from events import *
 
-def synonym(x,seed=0):
-    s = {}
+
+def biome_values(save=False):
+    #elevation,temperature,rainfall -> biome
+    #vals={(0.864,None,None):"mountain",
+        
+    d={(0.15,0.08):"frost",
+    (0.15,0.3):"tundra",
+    (0.15,1):"shrubland",
+    (0.3,0.03):"tundra",
+    (0.3,0.06):"shrubland",
+    (0.3,0.3):"boreal forest",
+    (0.3,0.4):"forest",
+    (0.3,1):"tropical forest", #what
+    (0.55,0.03):"desert",
+    (0.55,0.06):"savanna",
+    (0.55,0.09):"shrubland",
+    (0.55,0.2):"forest",
+    (0.55,1):"tropical forest", #what 
+    (1,0.03):"desert",
+    (1,0.06):"savanna",
+    (1,1):"tropical forest", #what
+    }
+    inv_d={}
+    for dkey in d:
+        inv_d.update({d[dkey]:dkey})
+    d=inv_d
+    if save:
+        d=json.dumps(d)
+        with open("biom_values.txt","w") as f:
+            f.write(d)
+            a=1
+    else:
+        return d
+
+def terrain_names(save=False):
+    s={}
     s["mountain"] = ["mountain","peak","ridge"]
     s["savanna"] = ["savanna","plain","prairie"]
     s["shrubland"] = ["shrubland","badlands","bushland"]
@@ -25,27 +61,46 @@ def synonym(x,seed=0):
     s["frost tundra"] = ["frost tundra","arctic","alpines","frozen tundra"]
     s["tropical forest"] = ["tropical forest","jungle"]
     s["boreal forest"] = ["boreal forest","woods","wood","taiga"]
-    s["carnivores"] = ["carnivores","predators"]
-    s["herbivores"] = ["herbivores","livestock"]
-    s["fear"] = ["fear","terror"]
-    s["warriors"] = ["warriors","fighters","soldiers"]
-    s["agriculture"] = ["agriculture","farming","irrigation"]
-    s["camp"] = ["bivouac","camp","camp","encampment","campsite"]
-    s["village"] = ["village","hamlet"]
-    s["township"] = ["township","settlement"]
-    s["plantlife"] = ["plantlife","plants","vegetation","flora"]
-    s["vegetation"] = ["plantlife","plants","vegetation","flora"]
-    s["fields"] = ["fields","farms","pastures"]
-    s["metallicity"] = ["metallicity","metals","ore"]
-    s["fertility"] = ["fertility","plenty","abundance"]
-    s["darkness"] = ["darkness","night","twilight","dusk"]
-    s["death"] = ["death","mortality"]
+    if save:
+        s=json.dumps(s)
+        
+        with open("terrain_names.txt","w") as f:
+            f.write(s)
+    else:
+        return s
+        
+def synonym(x,seed=0):
+    
+    s = {}
+    s.update(terrain_names())
+    
+    with open("terrain_names.txt","r") as f:
+        
+        s["carnivores"] = ["carnivores","predators"]
+        s["herbivores"] = ["herbivores","livestock"]
+        
+        s["fear"] = ["fear","terror"]
+        s["warriors"] = ["warriors","fighters","soldiers"]
+        s["agriculture"] = ["agriculture","farming","irrigation"]
+        s["camp"] = ["bivouac","camp","camp","encampment","campsite"]
+        s["village"] = ["village","hamlet"]
+        s["township"] = ["township","settlement"]
+        s["plantlife"] = ["plantlife","plants","vegetation","flora"]
+        s["vegetation"] = ["plantlife","plants","vegetation","flora"]
+        s["fields"] = ["fields","farms","pastures"]
+        s["metallicity"] = ["metallicity","metals","ore"]
+        s["fertility"] = ["fertility","plenty","abundance"]
+        s["darkness"] = ["darkness","night","twilight","dusk"]
+        s["death"] = ["death","mortality"]
+        
     syn = x
+    
     if x in s.keys():
         ch = random.randint(0,len(s[x])-1)
         if seed != 0:
             ch = seed % len(s[x])
         syn = s[x][ch]
+        
     return syn
 
 def seedNum(s):
@@ -151,6 +206,7 @@ class Node:
         self.y = yy
         self.neighbors = []
         self.landmass = None
+        self.biome=None
         self.bodyWater = None
         self.river = None
         self.region = None
@@ -262,49 +318,82 @@ class Node:
         rainFitness = 1-abs(self.rainfall-0.8)
         vegFitness = ((tempFitness+1)*(elevationFitness+0.5)*(fertilityFitness+0.5)*(rainFitness+2))
         self.vegetation = clamp(vegFitness/16,0,1)
+    
+    
     def setBiome(self,sl):
+        d=biome_values()
+        inv_d={}
+        for dkey in d:
+            inv_d.update({d[dkey]:dkey})
+        d=inv_d
+        l=[]
+        for key in d:
+            l.append((key,d[key]))
+        l.sort(key=lambda x : x[0])
+        #with open("biom_values.txt","r") as f:
+        #    s=f.read()
+        #    s=json.loads(s)
+        print(self.temp,self.rainfall)
+        for key in d:
+            print(key,d[key])
+            if self.temp < key[0] and self.rainfall < key[1]:
+                self.biome=d[key]
+                break
+                
         if self.elevation > 0.864:
-                self.biome = "mountain"
-        elif self.temp < 0.15:
-            if self.rainfall < 0.08:
-                self.biome = "frost"
-            elif self.rainfall < 0.3:
-                self.biome = "tundra"
-            else:
-                self.biome = "shrubland"
-        elif self.temp < 0.3:
-            if self.rainfall < 0.03:
-                self.biome = "tundra"
-                if self.temp > 0.5:
-                    self.biome = "desert"
-            elif self.rainfall < 0.06:
-                self.biome = "shrubland"
-            elif self.rainfall < 0.3:
-                self.biome = "boreal forest"
-            elif self.rainfall < 0.4:
-                self.biome = "forest"
-            else:
-                self.biome = "tropical forest"
-        elif self.temp < 0.55:
-            if self.rainfall < 0.03:
-                self.biome = "desert"
-            elif self.rainfall < 0.06:
-                self.biome = "savanna"
-            elif self.rainfall < 0.09:
-                self.biome = "shrubland"
-            elif self.rainfall < 0.2:
-                self.biome = "forest"
-            else:
-                self.biome = "tropical forest"
-        else:
-            if self.rainfall < 0.03:
-                self.biome = "desert"
-            elif self.rainfall < 0.06:
-                self.biome = "savanna"
-            else:
-                self.biome = "tropical forest"
-        if self.elevation < sl:
-            self.biome = "water"
+            self.biome = "mountain"
+        if self.elevation < 0:
+            self.biome="water"
+        
+        if self.biome==None:
+            self.biome=None
+        if False:
+            
+        
+        #elif self.temp < 0.15:
+        #    if self.rainfall < 0.08:
+        #        self.biome = "frost"
+        #    elif self.rainfall < 0.3:
+        #        self.biome = "tundra"
+        #    else:
+        #        self.biome = "shrubland"
+        
+                #if self.temp > 0.5:
+                #    self.biome = "desert"
+        #elif self.temp < 0.3:
+            #if self.rainfall < 0.03:
+                #self.biome = "tundra"
+            #elif self.rainfall < 0.06:
+                #self.biome = "shrubland"
+            #elif self.rainfall < 0.3:
+                #self.biome = "boreal forest"
+            #elif self.rainfall < 0.4:
+                #self.biome = "forest"
+            #else:
+                #self.biome = "tropical forest"
+        #elif self.temp < 0.55:
+            #if self.rainfall < 0.03:
+                #self.biome = "desert"
+            #elif self.rainfall < 0.06:
+                #self.biome = "savanna"
+            #elif self.rainfall < 0.09:
+                #self.biome = "shrubland"
+            #elif self.rainfall < 0.2:
+                #self.biome = "forest"
+            #else:
+                #self.biome = "tropical forest"
+        #else:
+            #if self.rainfall < 0.03:
+                #self.biome = "desert"
+            #elif self.rainfall < 0.06:
+                #self.biome = "savanna"
+            #else:
+                #self.biome = "tropical forest"
+        #if self.elevation < sl:
+        
+            #a=1
+            #self.biome = "water"
+            a=1
     def claim(self,n,sealevel=0.4):
         n.culture = self.culture
         inc = 1
@@ -2098,12 +2187,13 @@ class Map:
     def setBiomes(self):
         self.nodeSlopes()
         self.vegetation()
-        for p in self.atlas:
+        for p in self.atlas: #loop through the nodes
             p.setBiome(self.sealevel)
             p.biomeColor = self.biomeColors[p.biome]
             slope = clamp((p.realSlope()*(12000)),-32,32)
             shade = math.floor((-16)+p.biomeColor[2]+slope+(((p.elevation+1)**3)*16))
             p.biomeColor = (p.biomeColor[0],p.biomeColor[1],shade)
+            
     def setWildlife(self):
         for p in self.atlas:
             p.herbivores = clamp((p.vegetation*random.uniform(0.8,1.25))**2,0,1)
@@ -2615,4 +2705,6 @@ class Map:
             self.viewmode += 1
         self.redraw()
 
-
+if __name__=="__main__":
+    #save_terrain()
+    biome_values(True)

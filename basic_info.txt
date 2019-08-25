@@ -1,1 +1,1 @@
-{"numNodes": 64, "mapDimX": 960, "mapDimY": 960}
+{"mapDimY": 960, "mapDimX": 960, "numNodes": 64}

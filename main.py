@@ -1,5 +1,5 @@
 
-import src_mapgenmain as src_map
+import map_gen
 import draw
 from tkinter import *
 
@@ -26,14 +26,14 @@ def generate(save=True):
             
             f.write(d_s)
         
-    atlas = [src_map.Node(-1,-1),src_map.Node(mapDimX+1,-1),src_map.Node(mapDimY+1,mapDimY+1),src_map.Node(-1,mapDimY+1)]
-    world = src_map.Map(atlas,numNodes,mapDimX,mapDimY)
+    atlas = [map_gen.Node(-1,-1),map_gen.Node(mapDimX+1,-1),map_gen.Node(mapDimY+1,mapDimY+1),map_gen.Node(-1,mapDimY+1)]
+    world = map_gen.Map(atlas,numNodes,mapDimX,mapDimY)
 
     print("Generating points...")
     for x in range(numNodes-4):
         nodeX = random.random()*mapDimX
         nodeY = random.random()*mapDimY
-        newNode = src_map.Node(nodeX,nodeY)
+        newNode = map_gen.Node(nodeX,nodeY)
         atlas.append(newNode)
 
     npFloatAtlas = np.zeros((numNodes,2))
@@ -49,7 +49,7 @@ def generate(save=True):
     trisList = triangulation.vertices
     trisVerts = triangulation.points
     print("Relaxing points...")
-    src_map.relaxLloyd(npFloatAtlas,1)
+    map_gen.relaxLloyd(npFloatAtlas,1)
     for q in range(len(npFloatAtlas)):
         nodeX = npFloatAtlas[q,0]
         nodeY = npFloatAtlas[q,1]
@@ -61,7 +61,7 @@ def generate(save=True):
     print("Building triangles...")
     while triIndex < len(trisList):
         triVertsIndices = trisList[triIndex]
-        newTri = src_map.Triangle(atlas[triVertsIndices[0]],atlas[triVertsIndices[1]],atlas[triVertsIndices[2]])
+        newTri = map_gen.Triangle(atlas[triVertsIndices[0]],atlas[triVertsIndices[1]],atlas[triVertsIndices[2]])
         triangles.append(newTri)
         triIndex += 1
 
